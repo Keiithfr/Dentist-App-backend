@@ -13,20 +13,23 @@ mongoose.connect(process.env.MONGO_URI)
 
 const app = express()
 
-app.use(cors())
+app.use(cors(({
+    origin: "https://dentist-app-theta.vercel.app/"
+})));
 app.use(express.json())
 
 
 
 app.get("/bookings", async (req, res) => {
-    const bookings = await Booking.find();
+    const { userId } = req.query;
+    const bookings = await Booking.find({ userId });
     res.json(bookings);
 });
 
 app.post("/bookings", async (req, res) => {
     try {
         const { date, time } = req.body;
-        const exists = await Booking.findOne({ date, time });
+        const exists = await Booking.findOne({ date, time, userId: req.body.userId });
         if (exists) {
             return res.status(400).json({ message: "Time already booked" })
         }
