@@ -14,7 +14,8 @@ mongoose.connect(process.env.MONGO_URI)
 const app = express()
 
 app.use(cors(({
-    origin: "https://dentist-app-theta.vercel.app/"
+    origin: ["http://localhost:5173",
+        "https://dentist-app-theta.vercel.app"]
 })));
 app.use(express.json())
 
