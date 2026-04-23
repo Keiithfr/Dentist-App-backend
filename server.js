@@ -22,15 +22,26 @@ app.use(express.json())
 
 
 app.get("/bookings", async (req, res) => {
-    const { userId } = req.query;
-    const bookings = await Booking.find({ userId });
-    res.json(bookings);
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ message: "userId is required" });
+        }
+        const bookings = await Booking.find({ userId });
+        res.json(bookings);
+    } catch (err) {
+        res.status(500).json({ message: "Server error" })
+    }
 });
 
 app.post("/bookings", async (req, res) => {
     try {
-        const { date, time } = req.body;
-        const exists = await Booking.findOne({ date, time, userId: req.body.userId });
+        const { name, date, time, dentistId, userId } = req.body;
+
+        if (!name || !date || !time || !dentistId || !userId) {
+            return res.status(400).json({ message: "Missing required fields" });
+        }
+        const exists = await Booking.findOne({ date, time, dentistId: req.body.dentistId });
         if (exists) {
             return res.status(400).json({ message: "Time already booked" })
         }
