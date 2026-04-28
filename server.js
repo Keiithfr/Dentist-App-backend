@@ -3,6 +3,10 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const Booking = require("./models/Booking")
+const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
+const user = require("./models/User");
+const User = require("./models/User");
 
 
 mongoose.connect(process.env.MONGO_URI)
@@ -19,40 +23,98 @@ app.use(cors(({
 })));
 app.use(express.json())
 
-
-
-app.get("/bookings", async (req, res) => {
+app.post("/signup", async (req, res) => {
     try {
-        const { userId } = req.query;
-        if (!userId) {
-            return res.status(400).json({ message: "userId is required" });
+        const { email, password } = req.body;
+        const exists = await User.findOne({ email });
+        if (exists) {
+            return res.status(400).json({ message: "User already exists" });
         }
-        const bookings = await Booking.find({ userId });
-        res.json(bookings);
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = new User({
+            email,
+            password: hashedPassword,
+        });
+
+        await user.save();
+        req.status(201).json({ message: "User created" })
     } catch (err) {
         res.status(500).json({ message: "Server error" })
     }
 });
 
-app.post("/bookings", async (req, res) => {
+app.post("/login", async (req, res) => {
     try {
-        const { name, date, time, dentistId, userId } = req.body;
+        const { email, password } = req.body;
 
-        if (!name || !date || !time || !dentistId || !userId) {
-            return res.status(400).json({ message: "Missing required fields" });
-        }
-        const exists = await Booking.findOne({ date, time, dentistId: req.body.dentistId });
-        if (exists) {
-            return res.status(400).json({ message: "Time already booked" })
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: "Invalid credentials" });
         }
 
-        const newBooking = new Booking(req.body);
-        await newBooking.save();
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid credentials" })
+        }
 
-        res.status(201).json(newBooking);
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
+        res.json({ token });
     } catch (err) {
         res.status(500).json({ message: "Server error" })
     }
+});
+
+const authMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ message: "No token" })
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(401).json({ message: "Invalid token" })
+    }
+}
+
+
+
+app.get("/bookings", authMiddleware, async (req, res) => {
+
+    const bookings = await Booking.find({ userId: req.user.id, });
+    res.json(bookings);
+
+});
+
+app.post("/bookings", authMiddleware, async (req, res) => {
+    const { date, time } = req.body;
+    const exists = await Booking.findOne({
+        date,
+        time,
+        userId: req.user.id,
+    });
+    if (exists) {
+        return res.status(400).json({ message: "Time already booked" })
+    }
+
+    const newBooking = new Booking({
+        ...req.body,
+        userId: req.user.id,
+    });
+
+    await newBooking.save();
+
+    req.status(201).json(newBooking);
 
 });
 app.listen(5000, () => {
