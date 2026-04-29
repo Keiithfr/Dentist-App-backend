@@ -5,7 +5,6 @@ require("dotenv").config();
 const Booking = require("./models/Booking")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
-const user = require("./models/User");
 const User = require("./models/User");
 
 
@@ -19,6 +18,7 @@ const app = express()
 
 app.use(cors(({
     origin: ["http://localhost:5173",
+        "http://localhost:5174",
         "https://dentist-app-theta.vercel.app"]
 })));
 app.use(express.json())
@@ -38,7 +38,12 @@ app.post("/signup", async (req, res) => {
         });
 
         await user.save();
-        req.status(201).json({ message: "User created" })
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
+        res.status(201).json({ token })
     } catch (err) {
         res.status(500).json({ message: "Server error" })
     }
@@ -114,7 +119,7 @@ app.post("/bookings", authMiddleware, async (req, res) => {
 
     await newBooking.save();
 
-    req.status(201).json(newBooking);
+    res.status(201).json(newBooking);
 
 });
 app.listen(5000, () => {
