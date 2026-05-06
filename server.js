@@ -109,7 +109,7 @@ app.post("/bookings", authMiddleware, async (req, res) => {
         userId: req.user.id,
     });
     if (exists) {
-        return res.status(400).json({ message: "Time already booked" })
+        return res.status(400).json({ message: "Time already booked!" })
     }
 
     const newBooking = new Booking({
