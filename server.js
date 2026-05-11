@@ -102,11 +102,13 @@ app.get("/bookings", authMiddleware, async (req, res) => {
 });
 
 app.post("/bookings", authMiddleware, async (req, res) => {
-    const { date, time } = req.body;
+    const { date, time, dentistId } = req.body;
     const exists = await Booking.findOne({
+        dentistId,
         date,
         time,
-        userId: req.user.id,
+
+
     });
     if (exists) {
         return res.status(400).json({ message: "Time already booked!" })
