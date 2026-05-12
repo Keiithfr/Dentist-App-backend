@@ -102,29 +102,46 @@ app.get("/bookings", authMiddleware, async (req, res) => {
 });
 
 app.post("/bookings", authMiddleware, async (req, res) => {
-    const { date, time, dentistId } = req.body;
-    const appointmentTime = new Date(`${date}T${time}`);
-    const exists = await Booking.findOne({
-        dentistId,
-        appointmentTime,
 
+    try {
 
-    });
-    if (exists) {
-        return res.status(400).json({ message: "Time already booked!" })
+        const { date, time, dentistId } = req.body;
+
+        const appointmentTime =
+            new Date(`${date}T${time}`);
+
+        console.log(appointmentTime);
+
+        const exists = await Booking.findOne({
+            dentistId,
+            appointmentTime,
+        });
+
+        if (exists) {
+            return res.status(400).json({
+                message: "Time already booked!"
+            });
+        }
+
+        const newBooking = new Booking({
+            name: req.body.name,
+            dentistId,
+            appointmentTime,
+            userId: req.user.id,
+        });
+
+        await newBooking.save();
+
+        res.status(201).json(newBooking);
+
+    } catch (err) {
+
+        console.log(err);
+
+        res.status(500).json({
+            message: err.message
+        });
     }
-
-    const newBooking = new Booking({
-        name: req.body.name,
-        dentistId,
-        appointmentTime,
-        userId: req.user.id,
-    });
-
-    await newBooking.save();
-
-    res.status(201).json(newBooking);
-
 });
 app.listen(5000, () => {
     console.log("server running on port 5000")
