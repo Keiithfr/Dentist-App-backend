@@ -103,10 +103,10 @@ app.get("/bookings", authMiddleware, async (req, res) => {
 
 app.post("/bookings", authMiddleware, async (req, res) => {
     const { date, time, dentistId } = req.body;
+    const appointmentTime = new Date(`${date}T${time}`);
     const exists = await Booking.findOne({
         dentistId,
-        date,
-        time,
+        appointmentTime,
 
 
     });
@@ -115,7 +115,9 @@ app.post("/bookings", authMiddleware, async (req, res) => {
     }
 
     const newBooking = new Booking({
-        ...req.body,
+        name: req.body.name,
+        dentistId,
+        appointmentTime,
         userId: req.user.id,
     });
 
