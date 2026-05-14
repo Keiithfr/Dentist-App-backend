@@ -143,6 +143,38 @@ app.post("/bookings", authMiddleware, async (req, res) => {
         });
     }
 });
+
+app.delete("/bookings/:id", authMiddleware, async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({
+                message: "Booking not found"
+            });
+        }
+
+        //ownership check
+
+        if (booking.userId !== req.user.id) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+
+        }
+
+        await Booking.findByIdAndDelete(req.params.id);
+
+        res.json({
+            message: "Booking deleted"
+        });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            message: err.message
+        });
+    }
+})
 app.listen(5000, () => {
     console.log("server running on port 5000")
 })
