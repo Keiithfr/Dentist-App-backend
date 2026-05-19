@@ -6,6 +6,7 @@ const Booking = require("./models/Booking")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const User = require("./models/User");
+const cookieParser = require("cookie-parser")
 
 
 mongoose.connect(process.env.MONGO_URI)
@@ -19,9 +20,12 @@ const app = express()
 app.use(cors(({
     origin: ["http://localhost:5173",
         "http://localhost:5174",
-        "https://dentist-app-theta.vercel.app"]
+        "https://dentist-app-theta.vercel.app"],
+    credentials: true
 })));
-app.use(express.json())
+
+app.use(cookieParser());
+app.use(express.json());
 
 app.post("/signup", async (req, res) => {
     try {
@@ -38,12 +42,19 @@ app.post("/signup", async (req, res) => {
         });
 
         await user.save();
-        const token = jwt.sign(
-            { id: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: "1d" }
-        );
-        res.status(201).json({ token })
+        res.cookie("token", token, {
+            httpOnly: true, //frontend js cannot read token. Protects against token theft.
+            secure: true, //only send cookies over https.
+            sameSite: "None", //allows frontend and backend to be on different domains.
+            maxAge: 24 * 60 * 60 * 1000 //cookie expiration set to 24hrs
+        });
+        res.json({
+            user: {
+                id: user._id,
+                email: user.email
+            }
+        });
+
     } catch (err) {
         res.status(500).json({ message: "Server error" })
     }
@@ -68,29 +79,60 @@ app.post("/login", async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
         );
-        res.json({ token });
+        res.cookie("token", token, {
+            httpOnly: true, //frontend js cannot read token. Protects against token theft.
+            secure: true, //only send cookies over https.
+            sameSite: "None", //allows frontend and backend to be on different domains.
+            maxAge: 24 * 60 * 60 * 1000 //cookie expiration set to 24hrs
+        });
+        res.json({
+            user: {
+                id: user._id,
+                email: user.email
+            }
+        });
     } catch (err) {
         res.status(500).json({ message: "Server error" })
     }
 });
 
-const authMiddleware = (req, res, next) => {
-    const authHeader = req.headers.authorization;
+app.post("/logout", (req, res) => {
 
-    if (!authHeader) {
-        return res.status(401).json({ message: "No token" })
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None"
+    });
+
+    res.json({
+        message: "Logged out"
+    });
+});
+
+const authMiddleware = (req, res, next) => {
+
+    const token = req.cookies.token;
+
+    if (!token) {
+        return res.status(401).json({
+            message: "No token"
+        });
     }
 
-    const token = authHeader.split(" ")[1];
-
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET
+        );
         req.user = decoded;
         next();
     } catch (err) {
-        res.status(401).json({ message: "Invalid token" })
+        res.status(401).json({
+            message: "Invalid token"
+        });
     }
-}
+
+};
 
 
 
@@ -175,6 +217,18 @@ app.delete("/bookings/:id", authMiddleware, async (req, res) => {
         });
     }
 })
+
+app.get("/me", authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .select("-password");
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
 app.listen(5000, () => {
     console.log("server running on port 5000")
 })
