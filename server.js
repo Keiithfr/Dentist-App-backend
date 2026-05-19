@@ -42,6 +42,11 @@ app.post("/signup", async (req, res) => {
         });
 
         await user.save();
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
         res.cookie("token", token, {
             httpOnly: true, //frontend js cannot read token. Protects against token theft.
             secure: true, //only send cookies over https.
